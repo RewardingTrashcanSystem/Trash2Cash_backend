@@ -11,7 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ======================
 SECRET_KEY = 't3rR3nd3r-!xL$8k#2m@p9v&u7q*1z!d4w^y0h5r3b'
 DEBUG = False  # Always False in production
-ALLOWED_HOSTS = ['your-app.onrender.com']  # Replace with your Render URL
+ALLOWED_HOSTS = ['trash2cash-backend-hclt.onrender.com']
 
 # ======================
 # INSTALLED APPS
