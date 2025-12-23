@@ -6,6 +6,7 @@ from .serializers import RegisterSerializer, LoginSerializer
 
 
 class RegisterAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -22,10 +23,11 @@ class RegisterAPIView(APIView):
 
 
 class LoginAPIView(APIView):
+    permission_classes = [permissions.AllowAny]
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.validated_data
+            user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
 
             return Response({
