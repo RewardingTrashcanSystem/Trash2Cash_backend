@@ -5,7 +5,7 @@ from .models import User
 
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
-
+    
     class Meta:
         model = User
         fields = [
@@ -16,7 +16,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             'password',
             'image'
         ]
-
+    
     def create(self, validated_data):
         password = validated_data.pop('password')
         user = User.objects.create_user(password=password, **validated_data)
@@ -31,19 +31,24 @@ class LoginSerializer(serializers.Serializer):
         email_or_phone = data.get('email_or_phone')
         password = data.get('password')
 
-        # Try to find user by email or phone
+        # Try to find user by email
         try:
             user = User.objects.get(email=email_or_phone)
         except User.DoesNotExist:
+            # If not found by email, try phone_number
             try:
-                user = User.objects.get(phone=email_or_phone)
+                user = User.objects.get(phone_number=email_or_phone)
             except User.DoesNotExist:
                 raise serializers.ValidationError("Invalid credentials")
 
-        # Authenticate user
-        user = authenticate(email=user.email, password=password)
-        if not user:
+        # Authenticate user - use email as username
+        authenticated_user = authenticate(
+            username=user.email,  # Use email as username for authentication
+            password=password
+        )
+        
+        if not authenticated_user:
             raise serializers.ValidationError("Invalid credentials")
 
-        data['user'] = user
+        data['user'] = authenticated_user
         return data

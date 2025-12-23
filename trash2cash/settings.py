@@ -1,5 +1,6 @@
 from pathlib import Path
 from datetime import timedelta
+import os
 
 # ======================
 # BASE DIR
@@ -9,9 +10,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ======================
 # SECURITY
 # ======================
-SECRET_KEY = 't3rR3nd3r-!xL$8k#2m@p9v&u7q*1z!d4w^y0h5r3b'
+SECRET_KEY = 't3rR3nd3r-!xL$8k#2m@p9v&u7q*1z!d4w^y0h5r3b'  # Change in production!
 DEBUG = False  # Always False in production
-ALLOWED_HOSTS = ['trash2cash-backend-hclt.onrender.com']
+
+ALLOWED_HOSTS = [
+    'trash2cash-backend-hclt.onrender.com',
+    'localhost',
+    '127.0.0.1'
+]
 
 # ======================
 # INSTALLED APPS
@@ -26,7 +32,6 @@ INSTALLED_APPS = [
 
     # Third-party apps
     'rest_framework',
-    'rest_framework.authtoken',
     'corsheaders',
 
     # Your apps
@@ -43,7 +48,7 @@ REST_FRAMEWORK = {
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
-        'rest_framework.permissions.IsAuthenticated',
+        'rest_framework.permissions.AllowAny',  # Changed from IsAuthenticated
     ),
 }
 
@@ -51,15 +56,16 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'AUTH_HEADER_TYPES': ('Bearer',),
+    'ROTATE_REFRESH_TOKENS': True,
 }
 
 # ======================
 # MIDDLEWARE
 # ======================
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',  # allow cross-origin requests
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',  # serve static files
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -92,7 +98,7 @@ TEMPLATES = [
 WSGI_APPLICATION = 'trash2cash.wsgi.application'
 
 # ======================
-# DATABASE (SQLite, ORM)
+# DATABASE (SQLite for Render)
 # ======================
 DATABASES = {
     'default': {
@@ -100,6 +106,29 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
+# Handle Render deployment
+if 'RENDER' in os.environ:
+    # Ensure database directory exists and is writable
+    db_path = DATABASES['default']['NAME']
+    db_dir = os.path.dirname(db_path)
+    os.makedirs(db_dir, exist_ok=True)
+    
+    # Increase timeout for Render
+    DATABASES['default']['OPTIONS'] = {
+        'timeout': 30,
+    }
+    
+    # Disable debug mode
+    DEBUG = False
+    
+    # Security settings for production
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
 
 # ======================
 # PASSWORD VALIDATION
@@ -129,13 +158,42 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Create media directory if it doesn't exist
+os.makedirs(MEDIA_ROOT, exist_ok=True)
+
 # ======================
-# CORS
+# CORS (Allow Flutter & Frontend)
 # ======================
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    # Add Flutter Web URL if needed
+CORS_ALLOW_ALL_ORIGINS = True  # For development - be more restrictive in production
+
+# OR for specific origins:
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:*",
+#     "https://localhost:*",
+#     "http://127.0.0.1:*",
+#     "http://192.168.*:*",  # For Flutter on mobile
+#     "https://*.onrender.com",
+# ]
+
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 # ======================

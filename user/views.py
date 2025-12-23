@@ -7,6 +7,7 @@ from .serializers import RegisterSerializer, LoginSerializer
 
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
         if serializer.is_valid():
@@ -15,8 +16,17 @@ class RegisterAPIView(APIView):
 
             return Response({
                 "message": "User registered successfully",
-                "access": str(refresh.access_token),
-                "refresh": str(refresh)
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "phone_number": user.phone_number,
+                },
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }
             }, status=status.HTTP_201_CREATED)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -24,6 +34,7 @@ class RegisterAPIView(APIView):
 
 class LoginAPIView(APIView):
     permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -32,8 +43,17 @@ class LoginAPIView(APIView):
 
             return Response({
                 "message": "Login successful",
-                "access": str(refresh.access_token),
-                "refresh": str(refresh)
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "phone_number": user.phone_number,
+                },
+                "tokens": {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh)
+                }
             })
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -43,4 +63,5 @@ class LogoutAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
+        # Optionally blacklist the token here
         return Response({"message": "Logout successful"})

@@ -1,0 +1,1 @@
+web: gunicorn trash2cash.wsgi:application --bind 0.0.0.0:$PORT

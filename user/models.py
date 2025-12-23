@@ -13,6 +13,9 @@ class UserManager(BaseUserManager):
     def create_user(self, email, first_name, last_name, phone_number, password=None):
         if not email:
             raise ValueError("Email is required")
+        
+        if not phone_number:
+            raise ValueError("Phone number is required")
 
         user = self.model(
             email=self.normalize_email(email),
@@ -59,3 +62,9 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"
+    
+    def get_full_name(self):
+        return f"{self.first_name} {self.last_name}"
+    
+    def get_short_name(self):
+        return self.first_name
