@@ -3,6 +3,12 @@ from .models import History
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
+class HistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = History
+        fields = ['id', 'user', 'points', 'action', 'description', 'created_at']
+        read_only_fields = ['id', 'created_at', 'user']
+
 class TransactionSerializer(serializers.Serializer):
     receiver_email_or_phone = serializers.CharField()
     points = serializers.IntegerField(min_value=5)  # minimum 5 points to send
