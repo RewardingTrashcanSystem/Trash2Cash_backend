@@ -51,14 +51,30 @@ class User(AbstractBaseUser, PermissionsMixin):
         null=True,
         blank=True
     )
-
+    total_points = models.PositiveIntegerField(default=10)
+    eco_level = models.CharField(
+        max_length=30,
+        default="Newbie"
+    )
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-
     objects = UserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
+    def update_eco_level(self):
+        """Update eco level based on total points"""
+        if self.total_points >= 1000:
+            self.eco_level = "Master Eco"
+        elif self.total_points >= 500:
+            self.eco_level = "Eco Warrior"
+        elif self.total_points >= 200:
+            self.eco_level = "Eco Enthusiast"
+        elif self.total_points >= 100:
+            self.eco_level = "Eco Beginner"
+        else:
+            self.eco_level = "Newbie"
+        self.save(update_fields=["eco_level"])
 
     def __str__(self):
         return f"{self.first_name} {self.last_name}"

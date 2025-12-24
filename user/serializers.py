@@ -14,7 +14,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             'last_name',
             'phone_number',
             'password',
-            'image'
+            'image',
+            'total_points',
+            'eco_level',
         ]
     
     def create(self, validated_data):
