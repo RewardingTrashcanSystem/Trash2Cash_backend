@@ -36,6 +36,7 @@ INSTALLED_APPS = [
 
     # Your apps
     'user',
+    'history',
 ]
 
 AUTH_USER_MODEL = 'user.User'
