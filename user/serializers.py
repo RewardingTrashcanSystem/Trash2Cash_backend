@@ -3,10 +3,28 @@ from django.contrib.auth import authenticate
 from django.core.files.images import get_image_dimensions
 from django.core.exceptions import ValidationError
 from .models import User
+import re
 
 # Constants matching your settings
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2MB
 ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif']
+class CheckRegistartionSerializer(serializers.Serializer):
+    email = serializers.EmailField(required = True)
+    phone_number = serializers.CharField(required = True , max_length = 15)
+    def validate_email(self,value):
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError("Email already registered. Please login instead.")
+        
+        return value.lower()
+    
+    def validate_phone_number(self , value):
+        phone_regex = r'^\+?\d{9,15}$'
+        if not re.match(phone_regex, value):
+            raise serializers.ValidationError("Phone number must be in the format +2519XXXXXXXX")
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError("Phone number already registered. Please login instead.")
+        
+        return value
 
 
 class RegisterSerializer(serializers.ModelSerializer):
