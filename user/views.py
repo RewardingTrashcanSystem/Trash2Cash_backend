@@ -4,6 +4,8 @@ from rest_framework import status, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import RegisterSerializer, LoginSerializer, ProfileSerializer,CheckRegistartionSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
+from django.core.exceptions import ValidationError
+
 class CheckRegistrationView(APIView):
     permission_classes = [permissions.AllowAny]
     def post(self, request):
@@ -43,27 +45,49 @@ class CheckRegistrationView(APIView):
 
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
+        
         if serializer.is_valid():
-            user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+            try:
+                user = serializer.save()
+                refresh = RefreshToken.for_user(user)
+                
+                return Response({
+                    "status": "success",
+                    "message": "User registered successfully",
+                    "user": {
+                        "id": user.id,
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "phone_number": user.phone_number,
+                        "total_points": user.total_points,
+                        "eco_level": user.eco_level,
+                        "image": request.build_absolute_uri(user.image.url) if user.image else None,
+                    },
+                    "tokens": {
+                        "access": str(refresh.access_token),
+                        "refresh": str(refresh)
+                    }
+                }, status=status.HTTP_201_CREATED)
+                
+            except ValidationError as e:
+                # Handle image validation errors from serializer.create()
+                return Response({
+                    "status": "error",
+                    "message": "Registration failed",
+                    "errors": {"image": [str(e)]}
+                }, status=status.HTTP_400_BAD_REQUEST)
+                
+        else:
+            # Return validation errors in consistent format
             return Response({
-                "message": "User registered successfully",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "phone_number": user.phone_number,
-                },
-                "tokens": {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh)
-                }
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
+                "status": "error",
+                "message": "Registration failed",
+                "errors": serializer.errors
+            }, status=status.HTTP_400_BAD_REQUEST)
 class LoginAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     def post(self, request):

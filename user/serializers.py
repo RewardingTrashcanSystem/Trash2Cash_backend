@@ -4,6 +4,7 @@ from django.core.files.images import get_image_dimensions
 from django.core.exceptions import ValidationError
 from .models import User
 import re
+from django.core.exceptions import ValidationError
 
 # Constants matching your settings
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2MB
@@ -44,20 +45,80 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['total_points', 'eco_level']
     
+    def validate_email(self, value):
+        """
+        Validate that email is unique and properly formatted
+        """
+        value = value.lower().strip()
+        
+        # Check if email already exists
+        if User.objects.filter(email__iexact=value).exists():
+            raise serializers.ValidationError(
+                "This email is already registered. Please use a different email or login."
+            )
+        
+        # Validate email format
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', value):
+            raise serializers.ValidationError("Please enter a valid email address.")
+        
+        return value
+    
+    def validate_phone_number(self, value):
+        """
+        Validate that phone number is unique and properly formatted
+        """
+        value = value.strip()
+        
+        # Phone number regex for Ethiopian format (+251XXXXXXXXX)
+        phone_regex = r'^\+251[0-9]{9}$'
+        if not re.match(phone_regex, value):
+            raise serializers.ValidationError(
+                "Phone number must be in Ethiopian format: +251XXXXXXXXX (e.g., +251911223344)"
+            )
+        
+        # Check if phone number already exists
+        if User.objects.filter(phone_number=value).exists():
+            raise serializers.ValidationError(
+                "This phone number is already registered. Please use a different number or login."
+            )
+        
+        return value
+    
+    def validate(self, data):
+        """
+        Additional validation that requires multiple fields
+        """
+        # Check if both email and phone number already exist (for the same user)
+        email = data.get('email', '').lower()
+        phone_number = data.get('phone_number', '')
+        
+        # You could add additional cross-field validation here
+        # For example, check if the same person is trying to register with different emails
+        
+        return data
+    
     def create(self, validated_data):
         password = validated_data.pop('password')
+        
         # Handle image if present
         image = validated_data.get('image')
         if image:
             # Validate image size
             if image.size > MAX_UPLOAD_SIZE:
-                raise ValidationError(f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB")
+                raise ValidationError(
+                    f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB. "
+                    f"Your image is {image.size/1024/1024:.2f}MB."
+                )
             
             # Validate image extension
             ext = image.name.split('.')[-1].lower()
             if ext not in ALLOWED_IMAGE_EXTENSIONS:
-                raise ValidationError(f"Only {', '.join(ALLOWED_IMAGE_EXTENSIONS)} files are allowed")
+                raise ValidationError(
+                    f"Only {', '.join(ALLOWED_IMAGE_EXTENSIONS)} files are allowed. "
+                    f"Your file type is .{ext}"
+                )
         
+        # Create user
         user = User.objects.create_user(password=password, **validated_data)
         return user
 
