@@ -17,6 +17,8 @@ ALLOWED_HOSTS = [
     'trash2cash-backend-hclt.onrender.com',
     'localhost',
     '127.0.0.1',
+    'trash2cash-backend-1.onrender.com',
+
 ]
 
 # ======================

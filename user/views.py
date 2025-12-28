@@ -47,26 +47,20 @@ class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     
     def post(self, request):
-        serializer = RegisterSerializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data, context={'request': request})
         
         if serializer.is_valid():
             try:
                 user = serializer.save()
                 refresh = RefreshToken.for_user(user)
                 
+                # Get user data from serializer with image URL
+                user_data = serializer.data
+                
                 return Response({
                     "status": "success",
                     "message": "User registered successfully",
-                    "user": {
-                        "id": user.id,
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "phone_number": user.phone_number,
-                        "total_points": user.total_points,
-                        "eco_level": user.eco_level,
-                        "image": request.build_absolute_uri(user.image.url) if user.image else None,
-                    },
+                    "user": user_data,
                     "tokens": {
                         "access": str(refresh.access_token),
                         "refresh": str(refresh)
@@ -88,31 +82,28 @@ class RegisterAPIView(APIView):
                 "message": "Registration failed",
                 "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
+        
 class LoginAPIView(APIView):
     permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        serializer = LoginSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
+            
+            # Get the user data from serializer with image URL
+            user_data = serializer.data
+            
             return Response({
                 "message": "Login successful",
-                "user": {
-                    "id": user.id,
-                    "email": user.email,
-                    "first_name": user.first_name,
-                    "last_name": user.last_name,
-                    "phone_number": user.phone_number,
-                    'eco_level': user.eco_level,
-                    'total_points': user.total_points,
-                },
+                "user": user_data,  # Use serializer.data which now includes image URL
                 "tokens": {
                     "access": str(refresh.access_token),
                     "refresh": str(refresh)
                 }
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 class LogoutAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     def post(self, request):
@@ -121,12 +112,22 @@ class LogoutAPIView(APIView):
 class ProfileAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
+    
     def get(self, request):
-        serializer = ProfileSerializer(request.user)
+        serializer = ProfileSerializer(request.user, context={'request': request})
         return Response(serializer.data)
+    
     def put(self, request):
-        serializer = ProfileSerializer(request.user, data=request.data, partial=True)
+        serializer = ProfileSerializer(
+            request.user, 
+            data=request.data, 
+            partial=True,
+            context={'request': request}
+        )
         if serializer.is_valid():
             serializer.save()
-            return Response({"message": "Profile updated successfully", "user": serializer.data})
+            return Response({
+                "message": "Profile updated successfully", 
+                "user": serializer.data
+            })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
