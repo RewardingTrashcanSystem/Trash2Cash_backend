@@ -153,16 +153,61 @@ class LoginSerializer(serializers.Serializer):
         
         data['user'] = authenticated_user
         return data
+    
+    def to_representation(self, instance):
+        """
+        Override to return user data with full image URL
+        """
+        if isinstance(instance, dict) and 'user' in instance:
+            user = instance['user']
+        else:
+            user = instance
+        
+        # Build the response data
+        representation = {
+            'id': user.id,
+            'email': user.email,
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'phone_number': user.phone_number,
+            'total_points': user.total_points,
+            'eco_level': user.eco_level,
+            'image': None
+        }
+        
+        # Add full image URL if image exists
+        if user.image:
+            request = self.context.get('request')
+            if request:
+                representation['image'] = request.build_absolute_uri(user.image.url)
+            else:
+                representation['image'] = user.image.url
+        
+        return representation
 
 
 class ProfileSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField(read_only=True)
+    
     class Meta:
         model = User
         fields = [
             'id', 'email', 'first_name', 'last_name',
-            'phone_number', 'image', 'total_points', 'eco_level'
+            'phone_number', 'image', 'image_url', 'total_points', 'eco_level'
         ]
-        read_only_fields = ['id', 'email', 'total_points', 'eco_level']
+        read_only_fields = ['id', 'email', 'total_points', 'eco_level', 'image_url']
+    
+    def get_image_url(self, obj):
+        """
+        Return full image URL for the image
+        """
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            # Fallback to relative URL if no request context
+            return obj.image.url
+        return None
     
     def validate_image(self, value):
         """
@@ -208,3 +253,21 @@ class ProfileSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance
+    
+    def to_representation(self, instance):
+        """
+        Ensure image URL is included in the response
+        """
+        representation = super().to_representation(instance)
+        
+        # Make sure image_url is populated
+        if 'image_url' not in representation or representation['image_url'] is None:
+            representation['image_url'] = self.get_image_url(instance)
+        
+        # Also include the relative path in 'image' field for backward compatibility
+        if instance.image:
+            representation['image'] = instance.image.url
+        else:
+            representation['image'] = None
+        
+        return representation
