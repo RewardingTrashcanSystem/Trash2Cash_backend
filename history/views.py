@@ -42,7 +42,7 @@ class CheckReceiverAPIView(APIView):
                     {
                         "success": False,
                         "message": "User not found",
-                        "exists": False
+                        "exists": False  # This is a boolean
                     },
                     status=status.HTTP_200_OK
                 )
@@ -62,7 +62,7 @@ class CheckReceiverAPIView(APIView):
             "success": True,
             "message": "User found",
             "exists": True,
-            "user": {
+            "user": {  # Make sure this returns a dictionary, not boolean
                 "id": receiver.id,
                 "full_name": f"{receiver.first_name} {receiver.last_name}",
                 "email": receiver.email,
