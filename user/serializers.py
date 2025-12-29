@@ -4,28 +4,115 @@ from django.core.files.images import get_image_dimensions
 from django.core.exceptions import ValidationError
 from .models import User
 import re
-from django.core.exceptions import ValidationError
 
 # Constants matching your settings
 MAX_UPLOAD_SIZE = 2 * 1024 * 1024  # 2MB
 ALLOWED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif']
-class CheckRegistartionSerializer(serializers.Serializer):
-    email = serializers.EmailField(required = True)
-    phone_number = serializers.CharField(required = True , max_length = 15)
-    def validate_email(self,value):
+
+
+class CheckRegistrationSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+    phone_number = serializers.CharField(required=True, max_length=15)
+    
+    def validate_email(self, value):
         if User.objects.filter(email__iexact=value).exists():
             raise serializers.ValidationError("Email already registered. Please login instead.")
-        
         return value.lower()
     
-    def validate_phone_number(self , value):
+    def validate_phone_number(self, value):
         phone_regex = r'^\+?\d{9,15}$'
         if not re.match(phone_regex, value):
             raise serializers.ValidationError("Phone number must be in the format +2519XXXXXXXX")
         if User.objects.filter(phone_number=value).exists():
             raise serializers.ValidationError("Phone number already registered. Please login instead.")
+        return value
+
+
+class ProfileSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField(read_only=True)
+    full_name = serializers.SerializerMethodField(read_only=True)
+    
+    class Meta:
+        model = User
+        fields = [
+            'id', 'email', 'first_name', 'last_name', 'full_name',
+            'phone_number', 'image', 'image_url', 'total_points', 'eco_level'
+        ]
+        read_only_fields = ['id', 'email', 'total_points', 'eco_level', 'image_url', 'full_name']
+    
+    def get_full_name(self, obj):
+        return f"{obj.first_name} {obj.last_name}"
+    
+    def get_image_url(self, obj):
+        """
+        Return full image URL for the image
+        """
+        if obj.image:
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.image.url)
+            # Fallback to relative URL if no request context
+            return obj.image.url
+        return None
+    
+    def validate_image(self, value):
+        """
+        Custom validation for image field
+        """
+        if value:
+            # 1. Check file size
+            if value.size > MAX_UPLOAD_SIZE:
+                raise serializers.ValidationError(
+                    f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB"
+                )
+            
+            # 2. Check file extension
+            ext = value.name.split('.')[-1].lower()
+            if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                raise serializers.ValidationError(
+                    f"File type not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
+                )
+            
+            # 3. Optional: Check image dimensions
+            try:
+                width, height = get_image_dimensions(value)
+                if width > 5000 or height > 5000:
+                    raise serializers.ValidationError(
+                        "Image dimensions too large. Maximum 5000x5000 pixels"
+                    )
+            except:
+                # If we can't read dimensions, still accept the file
+                pass
         
         return value
+    
+    def update(self, instance, validated_data):
+        # Update allowed fields
+        instance.first_name = validated_data.get('first_name', instance.first_name)
+        instance.last_name = validated_data.get('last_name', instance.last_name)
+        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
+        
+        # Handle image separately to use validation
+        image = validated_data.get('image')
+        if image:
+            instance.image = image
+        
+        instance.save()
+        return instance
+    
+    def to_representation(self, instance):
+        """
+        Ensure consistent response format
+        """
+        representation = super().to_representation(instance)
+        
+        # Include both 'image' and 'image_url' for backward compatibility
+        if instance.image:
+            representation['image'] = instance.image.url
+        else:
+            representation['image'] = None
+        
+        return representation
 
 
 class RegisterSerializer(serializers.ModelSerializer):
@@ -39,9 +126,9 @@ class RegisterSerializer(serializers.ModelSerializer):
             'last_name',
             'phone_number',
             'password',
-            'image',           # Optional
-            'total_points',    # Read-only (has default)
-            'eco_level',       # Read-only (has default)
+            'image',
+            'total_points',
+            'eco_level',
         ]
         read_only_fields = ['total_points', 'eco_level']
     
@@ -121,6 +208,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Create user
         user = User.objects.create_user(password=password, **validated_data)
         return user
+    
+    def to_representation(self, instance):
+        """
+        Convert to ProfileSerializer format for consistent response
+        """
+        # Use ProfileSerializer to get consistent format
+        profile_serializer = ProfileSerializer(instance, context=self.context)
+        return profile_serializer.data
 
 
 class LoginSerializer(serializers.Serializer):
@@ -153,121 +248,3 @@ class LoginSerializer(serializers.Serializer):
         
         data['user'] = authenticated_user
         return data
-    
-    def to_representation(self, instance):
-        """
-        Override to return user data with full image URL
-        """
-        if isinstance(instance, dict) and 'user' in instance:
-            user = instance['user']
-        else:
-            user = instance
-        
-        # Build the response data
-        representation = {
-            'id': user.id,
-            'email': user.email,
-            'first_name': user.first_name,
-            'last_name': user.last_name,
-            'phone_number': user.phone_number,
-            'total_points': user.total_points,
-            'eco_level': user.eco_level,
-            'image': None
-        }
-        
-        # Add full image URL if image exists
-        if user.image:
-            request = self.context.get('request')
-            if request:
-                representation['image'] = request.build_absolute_uri(user.image.url)
-            else:
-                representation['image'] = user.image.url
-        
-        return representation
-
-
-class ProfileSerializer(serializers.ModelSerializer):
-    image_url = serializers.SerializerMethodField(read_only=True)
-    
-    class Meta:
-        model = User
-        fields = [
-            'id', 'email', 'first_name', 'last_name',
-            'phone_number', 'image', 'image_url', 'total_points', 'eco_level'
-        ]
-        read_only_fields = ['id', 'email', 'total_points', 'eco_level', 'image_url']
-    
-    def get_image_url(self, obj):
-        """
-        Return full image URL for the image
-        """
-        if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            # Fallback to relative URL if no request context
-            return obj.image.url
-        return None
-    
-    def validate_image(self, value):
-        """
-        Custom validation for image field
-        """
-        if value:
-            # 1. Check file size
-            if value.size > MAX_UPLOAD_SIZE:
-                raise serializers.ValidationError(
-                    f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB"
-                )
-            
-            # 2. Check file extension
-            ext = value.name.split('.')[-1].lower()
-            if ext not in ALLOWED_IMAGE_EXTENSIONS:
-                raise serializers.ValidationError(
-                    f"File type not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
-                )
-            
-            # 3. Optional: Check image dimensions
-            try:
-                width, height = get_image_dimensions(value)
-                if width > 5000 or height > 5000:
-                    raise serializers.ValidationError(
-                        "Image dimensions too large. Maximum 5000x5000 pixels"
-                    )
-            except:
-                # If we can't read dimensions, still accept the file
-                pass
-        
-        return value
-    
-    def update(self, instance, validated_data):
-        # Update allowed fields
-        instance.first_name = validated_data.get('first_name', instance.first_name)
-        instance.last_name = validated_data.get('last_name', instance.last_name)
-        instance.phone_number = validated_data.get('phone_number', instance.phone_number)
-        
-        # Handle image separately to use validation
-        image = validated_data.get('image')
-        if image:
-            instance.image = image
-        
-        instance.save()
-        return instance
-    
-    def to_representation(self, instance):
-        """
-        Ensure image URL is included in the response
-        """
-        representation = super().to_representation(instance)
-        
-        # Make sure image_url is populated
-        if 'image_url' not in representation or representation['image_url'] is None:
-            representation['image_url'] = self.get_image_url(instance)
-        
-        # Also include the relative path in 'image' field for backward compatibility
-        if instance.image:
-            representation['image'] = instance.image.url
-        else:
-            representation['image'] = None
-        
-        return representation
