@@ -2,14 +2,16 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework_simplejwt.tokens import RefreshToken
-from .serializers import RegisterSerializer, LoginSerializer, ProfileSerializer,CheckRegistartionSerializer
+from .serializers import RegisterSerializer, LoginSerializer, ProfileSerializer, CheckRegistrationSerializer
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.core.exceptions import ValidationError
 
+
 class CheckRegistrationView(APIView):
     permission_classes = [permissions.AllowAny]
+    
     def post(self, request):
-        serializer = CheckRegistartionSerializer(data=request.data)
+        serializer = CheckRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             return Response(
                 {
@@ -21,10 +23,12 @@ class CheckRegistrationView(APIView):
                     }
                 },
                 status=status.HTTP_200_OK
-            ) 
+            )
+        
         errors = serializer.errors
-        error_message =""
+        error_message = ""
         login_suggestion = False
+        
         if 'email' in errors and 'already registered' in str(errors['email'][0]).lower():
             error_message = errors['email'][0]
             login_suggestion = True
@@ -42,6 +46,7 @@ class CheckRegistrationView(APIView):
             'errors': errors
         }
         return Response(response_data, status=status.HTTP_400_BAD_REQUEST)
+
 
 class RegisterAPIView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -82,7 +87,8 @@ class RegisterAPIView(APIView):
                 "message": "Registration failed",
                 "errors": serializer.errors
             }, status=status.HTTP_400_BAD_REQUEST)
-        
+
+
 class LoginAPIView(APIView):
     permission_classes = [permissions.AllowAny]
     
@@ -92,22 +98,26 @@ class LoginAPIView(APIView):
             user = serializer.validated_data['user']
             refresh = RefreshToken.for_user(user)
             
-            # Get the user data from serializer with image URL
-            user_data = serializer.data
+            # Use ProfileSerializer to get consistent user data format
+            profile_serializer = ProfileSerializer(user, context={'request': request})
             
             return Response({
                 "message": "Login successful",
-                "user": user_data,  # Use serializer.data which now includes image URL
+                "user": profile_serializer.data,  # Consistent format with profile
                 "tokens": {
                     "access": str(refresh.access_token),
                     "refresh": str(refresh)
                 }
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
 class LogoutAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    
     def post(self, request):
         return Response({"message": "Logout successful"})
+
 
 class ProfileAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -119,15 +129,15 @@ class ProfileAPIView(APIView):
     
     def put(self, request):
         serializer = ProfileSerializer(
-            request.user, 
-            data=request.data, 
+            request.user,
+            data=request.data,
             partial=True,
             context={'request': request}
         )
         if serializer.is_valid():
             serializer.save()
             return Response({
-                "message": "Profile updated successfully", 
+                "message": "Profile updated successfully",
                 "user": serializer.data
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

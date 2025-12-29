@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/auth/', include('user.urls')),
 
     # Transaction / History APIs
-    path('api/history/', include('history.urls')),
+    path('api/points/', include('history.urls')),
 
     # JWT refresh
     path('api/auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
