@@ -1,6 +1,13 @@
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
+from urllib.parse import urlparse, parse_qsl
+
+# ======================
+# LOAD ENVIRONMENT VARIABLES
+# ======================
+load_dotenv()
 
 # ======================
 # BASE DIR
@@ -10,15 +17,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # ======================
 # SECURITY
 # ======================
-SECRET_KEY = 't3rR3nd3r-!xL$8k#2m@p9v&u7q*1z!d4w^y0h5r3b'
-DEBUG = True  # Set False on Render
+SECRET_KEY = os.environ.get('SECRET_KEY', 't3rR3nd3r-!xL$8k#2m@p9v&u7q*1z!d4w^y0h5r3b')
+DEBUG = os.environ.get('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = [
     'trash2cash-backend-hclt.onrender.com',
     'localhost',
     '127.0.0.1',
     'trash2cash-backend-1.onrender.com',
-
 ]
 
 # ======================
@@ -82,14 +88,60 @@ TEMPLATES = [
 WSGI_APPLICATION = 'trash2cash.wsgi.application'
 
 # ======================
-# DATABASE (SQLite ONLY)
+# DATABASE - NEON POSTGRESQL
 # ======================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    # Parse Neon PostgreSQL connection URL
+    try:
+        tmpPostgres = urlparse(DATABASE_URL)
+        
+        # Extract database name (remove leading slash)
+        db_name = tmpPostgres.path.replace('/', '')
+        if not db_name:
+            db_name = 'neondb'  # Default database name
+        
+        # Extract query parameters
+        query_params = dict(parse_qsl(tmpPostgres.query))
+        
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': db_name,
+                'USER': tmpPostgres.username,
+                'PASSWORD': tmpPostgres.password,
+                'HOST': tmpPostgres.hostname,
+                'PORT': tmpPostgres.port or 5432,
+                'OPTIONS': query_params,
+            }
+        }
+        
+        # Ensure sslmode is set for Neon
+        if 'sslmode' not in DATABASES['default']['OPTIONS']:
+            DATABASES['default']['OPTIONS']['sslmode'] = 'require'
+        
+        print(f"✅ Connected to Neon PostgreSQL: {tmpPostgres.hostname}")
+        
+    except Exception as e:
+        print(f"❌ Error parsing DATABASE_URL: {e}")
+        # Fallback to SQLite
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
+        print("⚠️ Falling back to SQLite database")
+else:
+    # Fallback to SQLite for local development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
     }
-}
+    print("⚠️ DATABASE_URL not set. Using SQLite for local development.")
 
 # ======================
 # PASSWORD VALIDATION
