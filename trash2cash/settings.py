@@ -41,6 +41,8 @@ INSTALLED_APPS = [
     # Third-party
     'rest_framework',
     'corsheaders',
+    'cloudinary_storage',  # Add Cloudinary storage
+    'cloudinary',          # Add Cloudinary
 
     # Local apps
     'user',
@@ -172,12 +174,23 @@ SIMPLE_JWT = {
 }
 
 # ======================
-# INTERNATIONALIZATION
+# CLOUDINARY CONFIGURATION
 # ======================
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
-USE_TZ = True
+# Cloudinary settings for media files
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
+    'API_KEY': os.environ.get('CLOUDINARY_API_KEY', 'your_api_key'),
+    'API_SECRET': os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
+    'SECURE': True,
+    'FOLDER': 'trash2cash',  # Base folder in Cloudinary
+}
+
+# Use Cloudinary for media files
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Media URL will be automatically handled by Cloudinary
+# Don't define MEDIA_URL or MEDIA_ROOT when using Cloudinary
+# Cloudinary will serve files from https://res.cloudinary.com/your-cloud-name/
 
 # ======================
 # STATIC FILES
@@ -187,11 +200,12 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # ======================
-# MEDIA FILES
+# INTERNATIONALIZATION
 # ======================
-MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
-os.makedirs(MEDIA_ROOT, exist_ok=True)
+LANGUAGE_CODE = 'en-us'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
 
 # ======================
 # CORS
@@ -212,3 +226,17 @@ CORS_ALLOW_HEADERS = [
 # DEFAULT PK
 # ======================
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ======================
+# LOCAL MEDIA SETTINGS (For development only)
+# ======================
+if DEBUG and not os.environ.get('USE_CLOUDINARY', False):
+    # Only use local media storage in development
+    # Remove or comment Cloudinary settings above if needed
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = BASE_DIR / 'media'
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    os.makedirs(MEDIA_ROOT, exist_ok=True)
+    print("⚠️ Using local media storage (development mode)")
+else:
+    print("✅ Using Cloudinary for media storage")

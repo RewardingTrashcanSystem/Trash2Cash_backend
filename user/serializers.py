@@ -45,13 +45,10 @@ class ProfileSerializer(serializers.ModelSerializer):
     
     def get_image_url(self, obj):
         """
-        Return full image URL for the image
+        Return full image URL for the image - Cloudinary version
         """
         if obj.image:
-            request = self.context.get('request')
-            if request:
-                return request.build_absolute_uri(obj.image.url)
-            # Fallback to relative URL if no request context
+            # Cloudinary field returns URL directly
             return obj.image.url
         return None
     
@@ -61,17 +58,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         """
         if value:
             # 1. Check file size
-            if value.size > MAX_UPLOAD_SIZE:
+            if hasattr(value, 'size') and value.size > MAX_UPLOAD_SIZE:
                 raise serializers.ValidationError(
                     f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB"
                 )
             
             # 2. Check file extension
-            ext = value.name.split('.')[-1].lower()
-            if ext not in ALLOWED_IMAGE_EXTENSIONS:
-                raise serializers.ValidationError(
-                    f"File type not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
-                )
+            if hasattr(value, 'name'):
+                ext = value.name.split('.')[-1].lower()
+                if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                    raise serializers.ValidationError(
+                        f"File type not allowed. Allowed types: {', '.join(ALLOWED_IMAGE_EXTENSIONS)}"
+                    )
             
             # 3. Optional: Check image dimensions
             try:
@@ -107,10 +105,8 @@ class ProfileSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         
         # Include both 'image' and 'image_url' for backward compatibility
-        if instance.image:
-            representation['image'] = instance.image.url
-        else:
-            representation['image'] = None
+        # Cloudinary field returns URL string when serialized
+        representation['image'] = instance.image.url if instance.image else None
         
         return representation
 
@@ -191,19 +187,20 @@ class RegisterSerializer(serializers.ModelSerializer):
         image = validated_data.get('image')
         if image:
             # Validate image size
-            if image.size > MAX_UPLOAD_SIZE:
+            if hasattr(image, 'size') and image.size > MAX_UPLOAD_SIZE:
                 raise ValidationError(
                     f"Image size must be less than {MAX_UPLOAD_SIZE/1024/1024}MB. "
                     f"Your image is {image.size/1024/1024:.2f}MB."
                 )
             
             # Validate image extension
-            ext = image.name.split('.')[-1].lower()
-            if ext not in ALLOWED_IMAGE_EXTENSIONS:
-                raise ValidationError(
-                    f"Only {', '.join(ALLOWED_IMAGE_EXTENSIONS)} files are allowed. "
-                    f"Your file type is .{ext}"
-                )
+            if hasattr(image, 'name'):
+                ext = image.name.split('.')[-1].lower()
+                if ext not in ALLOWED_IMAGE_EXTENSIONS:
+                    raise ValidationError(
+                        f"Only {', '.join(ALLOWED_IMAGE_EXTENSIONS)} files are allowed. "
+                        f"Your file type is .{ext}"
+                    )
         
         # Create user
         user = User.objects.create_user(password=password, **validated_data)
