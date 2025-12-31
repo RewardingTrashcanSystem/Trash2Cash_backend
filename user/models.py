@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin, BaseUserManager
 from django.core.validators import RegexValidator
+from cloudinary.models import CloudinaryField  # Add this import
 
 
 phone_validator = RegexValidator(
@@ -45,8 +46,13 @@ class User(AbstractBaseUser, PermissionsMixin):
         unique=True
     )
 
-    image = models.ImageField(
-        upload_to='profiles/',
+    # Replace ImageField with CloudinaryField
+    image = CloudinaryField(
+        'image',
+        folder='trash2cash/profiles',
+        transformation=[
+            {'width': 400, 'height': 400, 'crop': 'fill'},
+        ],
         null=True,
         blank=True
     )
@@ -61,6 +67,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone_number']
+    
     def update_eco_level(self):
         """Update eco level based on total points"""
         if self.total_points >= 1000:
